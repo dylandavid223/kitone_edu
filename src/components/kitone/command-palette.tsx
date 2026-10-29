@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -22,8 +21,7 @@ import {
   MessageSquare,
   Settings,
   UserCog,
-  Moon,
-  Sun,
+  SunMoon,
   Bell,
   FilePlus,
 } from 'lucide-react';
@@ -43,7 +41,7 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   onNavigate: (view: string) => void;
   onSetRole: (r: Role) => void;
-  onToggleTheme: () => void;
+  onCycleTheme: () => void;
   onQuick: (action: string) => void;
 }
 
@@ -52,7 +50,7 @@ export function CommandPalette({
   onOpenChange,
   onNavigate,
   onSetRole,
-  onToggleTheme,
+  onCycleTheme,
   onQuick,
 }: Props) {
   const nav: CommandAction[] = [
@@ -86,11 +84,11 @@ export function CommandPalette({
 
   const themeActions: CommandAction[] = [
     {
-      id: 'theme-toggle',
-      label: 'Toggle theme',
-      hint: 'Light / Dark',
-      icon: <Sun className="h-4 w-4" />,
-      run: onToggleTheme,
+      id: 'theme-cycle',
+      label: 'Cycle theme',
+      hint: 'Light / Dark / System',
+      icon: <SunMoon className="h-4 w-4" />,
+      run: onCycleTheme,
       group: 'System',
     },
   ];

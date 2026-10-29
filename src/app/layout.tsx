@@ -45,6 +45,10 @@ export const metadata: Metadata = {
   },
 };
 
+// Inline script: applies the saved theme + accent color BEFORE React hydrates
+// so users don't see a white flash on reload in dark mode.
+const themeInitScript = `(function(){try{var a=JSON.parse(localStorage.getItem('kitone-appearance')||'{}');var m=a.mode||'system';var d=m==='dark'||(m==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;if(d)r.classList.add('dark');var C={emerald:[158,0.16],teal:[200,0.12],green:[145,0.15],amber:[70,0.16],orange:[55,0.17],rose:[15,0.20],violet:[305,0.18],cyan:[220,0.10]};var c=C[a.colorId]||C.emerald,h=c[0],ch=c[1],L=d?'0.70':'0.60';r.style.setProperty('--primary','oklch('+L+' '+ch+' '+h+')');r.style.setProperty('--primary-foreground',d?'oklch(0.15 0.02 '+h+')':((a.colorId==='amber'||a.colorId==='orange')?'oklch(0.20 0.02 '+h+')':'oklch(0.99 0.005 '+h+')'));r.style.setProperty('--ring','oklch('+L+' '+ch+' '+h+')');r.style.setProperty('--sidebar-primary','oklch('+L+' '+ch+' '+h+')');r.style.setProperty('--sidebar-ring','oklch('+L+' '+ch+' '+h+')');if(a.radius)r.style.setProperty('--radius',a.radius+'rem');if(a.fontScale)r.style.fontSize=Math.round(a.fontScale*100)+'%';}catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -55,6 +59,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         {children}
         <Toaster />
       </body>

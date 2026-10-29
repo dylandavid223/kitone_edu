@@ -5,379 +5,135 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Wallet,
-  TrendingDown,
-  AlertTriangle,
-  Clock,
-  Plus,
-  Phone,
-  CheckCircle2,
-  Loader2,
-  Receipt,
-  Smartphone,
-  ShieldCheck,
-} from 'lucide-react';
-import { invoices, payments, formatKES, fmtEAT } from '../data';
+import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Wallet, AlertTriangle, Clock, Plus, Phone, CheckCircle2, Loader2, Smartphone, ShieldCheck } from 'lucide-react';
+import { useInstitution, formatKES, fmtEAT, pickColor, initials, type Invoice } from '../institution-store';
 import { StatusBadge } from '../ui/badges';
-import { StatCard } from '../ui/stat-card';
+import { EmptyState } from '../empty-state';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import type { Invoice } from '../data';
 
 type PayStep = 'idle' | 'confirm' | 'pending' | 'success';
 
 export function FeesModule() {
+  const { data, addPayment } = useInstitution();
+  const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState('all');
   const [payStep, setPayStep] = useState<PayStep>('idle');
   const [activeInvoice, setActiveInvoice] = useState<Invoice | null>(null);
   const [phone, setPhone] = useState('+254 712 345 678');
   const [confirmation, setConfirmation] = useState('');
-  const { toast } = useToast();
 
-  const filtered = invoices.filter((i) => statusFilter === 'all' || i.status === statusFilter);
-  const collected = 8400000;
-  const outstanding = 2400000;
-  const overdue = 890000;
-  const rate = Math.round((collected / (collected + outstanding)) * 100);
+  const filtered = data.invoices.filter((i) => statusFilter === 'all' || i.status === statusFilter);
+  const collected = data.payments.reduce((s, p) => s + p.amount, 0);
+  const outstanding = data.invoices.reduce((s, i) => s + (i.amount - i.paid), 0);
+  const overdue = data.invoices.filter((i) => i.status === 'overdue').reduce((s, i) => s + (i.amount - i.paid), 0);
+  const totalBilled = collected + outstanding;
+  const rate = totalBilled > 0 ? Math.round((collected / totalBilled) * 100) : 0;
 
-  function startPay(inv: Invoice) {
-    setActiveInvoice(inv);
-    const bal = inv.amount - inv.paid;
-    setPayStep('confirm');
-    // Pre-fill guardian phone from student lookup (mocked)
-    setPhone('+254 712 *** 678');
-    void bal;
-  }
-
+  function startPay(inv: Invoice) { setActiveInvoice(inv); setPayStep('confirm'); setPhone('+254 7xx xxx xxx'); }
   function sendStk() {
     setPayStep('pending');
-    // Simulate STK push + confirmation after ~3s
     setTimeout(() => {
       const code = 'SI' + Math.random().toString(36).slice(2, 10).toUpperCase();
-      setConfirmation(code);
-      setPayStep('success');
+      setConfirmation(code); setPayStep('success');
+      addPayment({ invoiceNo: activeInvoice!.invoiceNo, studentName: activeInvoice!.studentName, method: 'M-PESA', amount: activeInvoice!.amount - activeInvoice!.paid, code, phone, timestamp: new Date().toISOString() });
     }, 2800);
   }
-
-  function closePay() {
-    setPayStep('idle');
-    setActiveInvoice(null);
-    setConfirmation('');
-    toast({ title: 'Payment recorded', description: 'Receipt sent via SMS + email' });
-  }
+  function closePay() { setPayStep('idle'); setActiveInvoice(null); setConfirmation(''); toast({ title: 'Payment recorded', description: 'Receipt sent via SMS + email' }); }
 
   return (
     <div className="space-y-4">
-      {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Collected (T2)" value={formatKES(collected)} sub="78% of billed" icon="wallet" trend="+12% vs Term 1" tone="emerald" />
-        <StatCard label="Outstanding" value={formatKES(outstanding)} sub="327 students" icon="alert" trend="−4% this week" tone="amber" />
-        <StatCard label="Overdue (90+)" value={formatKES(overdue)} sub="84 students" icon="clock" trend="+1.2% this week" tone="rose" />
-        <StatCard label="Collection Rate" value={`${rate}%`} sub={`${formatKES(collected + outstanding)} billed`} icon="trending" trend="Target 85%" tone="emerald" />
+        <Card><CardContent className="p-4"><div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600"><Wallet className="h-4 w-4" /></span><div><p className="text-[10px] uppercase text-muted-foreground">Collected</p><p className="text-lg font-bold">{formatKES(collected)}</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600"><AlertTriangle className="h-4 w-4" /></span><div><p className="text-[10px] uppercase text-muted-foreground">Outstanding</p><p className="text-lg font-bold">{formatKES(outstanding)}</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600"><Clock className="h-4 w-4" /></span><div><p className="text-[10px] uppercase text-muted-foreground">Overdue</p><p className="text-lg font-bold">{formatKES(overdue)}</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-[10px] uppercase text-muted-foreground">Collection Rate</p><p className="text-lg font-bold">{rate}%</p></div><Progress value={rate} className="w-14 h-1.5" /></div></CardContent></Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Aging + methods */}
+      {data.invoices.length === 0 ? (
+        <EmptyState icon={Wallet} title="No invoices yet" description="Once you admit students and set fee structures, you can generate invoices and accept M-PESA payments." />
+      ) : (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Aging Report</CardTitle>
-            <CardDescription>Outstanding by age bucket</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {[
-              { bucket: '0–30 days', amt: 980000, pct: 41, tone: 'bg-emerald-500' },
-              { bucket: '31–60 days', amt: 620000, pct: 26, tone: 'bg-amber-500' },
-              { bucket: '61–90 days', amt: 410000, pct: 17, tone: 'bg-orange-500' },
-              { bucket: '90+ days', amt: 390000, pct: 16, tone: 'bg-rose-500' },
-            ].map((a) => (
-              <div key={a.bucket}>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium">{a.bucket}</span>
-                  <span className="text-muted-foreground">{formatKES(a.amt)}</span>
-                </div>
-                <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
-                  <div className={cn('h-full rounded-full', a.tone)} style={{ width: `${a.pct}%` }} />
-                </div>
-              </div>
-            ))}
-            <Separator />
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">Payment methods (this term)</p>
-              {[
-                { m: 'M-PESA', pct: 68, color: 'bg-emerald-500' },
-                { m: 'Bank Transfer', pct: 18, color: 'bg-teal-500' },
-                { m: 'Airtel Money', pct: 9, color: 'bg-amber-500' },
-                { m: 'Cash', pct: 5, color: 'bg-muted-foreground' },
-              ].map((p) => (
-                <div key={p.m} className="flex items-center gap-2 text-xs">
-                  <span className="w-24 shrink-0">{p.m}</span>
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                    <div className={cn('h-full rounded-full', p.color)} style={{ width: `${p.pct}%` }} />
-                  </div>
-                  <span className="w-8 text-right font-medium">{p.pct}%</span>
-                </div>
-              ))}
+          <CardHeader className="flex flex-row items-center justify-between space-y-0"><div><CardTitle className="text-base">Invoices</CardTitle><CardDescription>{filtered.length} shown</CardDescription></div><div className="flex gap-2"><Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger><SelectContent>{['all', 'paid', 'pending', 'overdue'].map((s) => <SelectItem key={s} value={s} className="capitalize">{s === 'all' ? 'All status' : s}</SelectItem>)}</SelectContent></Select><Button onClick={() => toast({ title: 'New invoice' })}><Plus className="mr-1.5 h-4 w-4" /> New Invoice</Button></div></CardHeader>
+          <CardContent className="p-0">
+            <div className="kitone-scroll overflow-x-auto">
+              <Table><TableHeader><TableRow className="bg-muted/40">
+                <TableHead className="text-xs">Invoice</TableHead><TableHead className="text-xs">Student</TableHead><TableHead className="text-xs text-right">Amount</TableHead><TableHead className="text-xs text-right">Balance</TableHead><TableHead className="text-xs">Status</TableHead><TableHead className="text-xs text-right">Action</TableHead>
+              </TableRow></TableHeader><TableBody>
+                {filtered.map((inv) => { const bal = inv.amount - inv.paid; return (
+                  <TableRow key={inv.id} className="hover:bg-muted/30">
+                    <TableCell className="font-mono text-xs">{inv.invoiceNo}</TableCell>
+                    <TableCell className="font-medium">{inv.studentName}</TableCell>
+                    <TableCell className="text-right">{formatKES(inv.amount)}</TableCell>
+                    <TableCell className="text-right font-semibold">{formatKES(bal)}</TableCell>
+                    <TableCell><StatusBadge status={inv.status} /></TableCell>
+                    <TableCell className="text-right">{inv.status !== 'paid' ? <Button size="sm" onClick={() => startPay(inv)}><Smartphone className="mr-1 h-3.5 w-3.5" /> Pay</Button> : <Button size="sm" variant="ghost" onClick={() => toast({ title: 'Receipt', description: inv.invoiceNo })}>Receipt</Button>}</TableCell>
+                  </TableRow>
+                ); })}
+              </TableBody></Table>
             </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* Reconciliation */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-base">Auto-Reconciliation</CardTitle>
-              <CardDescription>M-PESA Daraja · Paybill 247247</CardDescription>
-            </div>
-            <Badge className="gap-1 bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/15 border-0">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Live
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-lg border p-3">
-                <p className="text-[10px] uppercase text-muted-foreground">Matched today</p>
-                <p className="text-xl font-bold text-emerald-600">47</p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-[10px] uppercase text-muted-foreground">Unmatched</p>
-                <p className="text-xl font-bold text-amber-600">2</p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-[10px] uppercase text-muted-foreground">Last sync</p>
-                <p className="text-xl font-bold">2m</p>
-              </div>
-            </div>
-            <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <div className="flex-1">
-                  <p className="text-xs font-medium">2 unmatched payments awaiting reference match</p>
-                  <p className="text-[11px] text-muted-foreground">Likely wrong account number. Finance officer review needed.</p>
-                </div>
-                <Button variant="outline" size="sm" className="text-xs" onClick={() => toast({ title: 'Reviewing', description: 'Opening unmatched payment list' })}>Review</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Invoices */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <div>
-            <CardTitle className="text-base">Invoices</CardTitle>
-            <CardDescription>{filtered.length} invoices · Term 2 2025</CardDescription>
-          </div>
-          <div className="flex gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {['all', 'paid', 'pending', 'overdue'].map((s) => (
-                  <SelectItem key={s} value={s} className="capitalize">{s === 'all' ? 'All status' : s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={() => toast({ title: 'New invoice', description: 'Opening invoice builder' })}>
-              <Plus className="mr-1.5 h-4 w-4" /> New Invoice
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="kitone-scroll overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40">
-                  <TableHead className="text-xs">Invoice</TableHead>
-                  <TableHead className="text-xs">Student</TableHead>
-                  <TableHead className="text-xs">Class</TableHead>
-                  <TableHead className="text-xs text-right">Amount</TableHead>
-                  <TableHead className="text-xs text-right">Paid</TableHead>
-                  <TableHead className="text-xs text-right">Balance</TableHead>
-                  <TableHead className="text-xs">Due</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="text-xs text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((inv) => {
-                  const bal = inv.amount - inv.paid;
-                  return (
-                    <TableRow key={inv.id} className="hover:bg-muted/30">
-                      <TableCell className="font-mono text-xs">{inv.invoiceNo}</TableCell>
-                      <TableCell className="font-medium">{inv.studentName}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{inv.className}</TableCell>
-                      <TableCell className="text-right">{formatKES(inv.amount)}</TableCell>
-                      <TableCell className="text-right text-emerald-600">{formatKES(inv.paid)}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatKES(bal)}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('en-KE', { day: '2-digit', month: 'short' })}</TableCell>
-                      <TableCell><StatusBadge status={inv.status} /></TableCell>
-                      <TableCell className="text-right">
-                        {inv.status !== 'paid' ? (
-                          <Button size="sm" onClick={() => startPay(inv)}>
-                            <Smartphone className="mr-1 h-3.5 w-3.5" /> Pay
-                          </Button>
-                        ) : (
-                          <Button size="sm" variant="ghost" onClick={() => toast({ title: 'Receipt', description: `Receipt for ${inv.invoiceNo}` })}>
-                            <Receipt className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent payments */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Recent Payments</CardTitle>
-          <CardDescription>Auto-reconciled · last 7 days</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="kitone-scroll max-h-[320px] overflow-y-auto">
-            <Table>
-              <TableHeader className="sticky top-0 bg-card">
-                <TableRow className="bg-muted/40">
-                  <TableHead className="text-xs">Student</TableHead>
-                  <TableHead className="text-xs">Method</TableHead>
-                  <TableHead className="text-xs">Confirmation</TableHead>
-                  <TableHead className="text-xs">Phone</TableHead>
-                  <TableHead className="text-xs">Time (EAT)</TableHead>
-                  <TableHead className="text-xs text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((p) => (
+      {data.payments.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Recent Payments</CardTitle><CardDescription>Auto-reconciled via M-PESA Daraja</CardDescription></CardHeader>
+          <CardContent className="p-0">
+            <div className="kitone-scroll max-h-[320px] overflow-y-auto">
+              <Table><TableHeader className="sticky top-0 bg-card"><TableRow className="bg-muted/40">
+                <TableHead className="text-xs">Student</TableHead><TableHead className="text-xs">Method</TableHead><TableHead className="text-xs">Code</TableHead><TableHead className="text-xs">Time (EAT)</TableHead><TableHead className="text-xs text-right">Amount</TableHead>
+              </TableRow></TableHeader><TableBody>
+                {data.payments.map((p) => (
                   <TableRow key={p.id} className="hover:bg-muted/30">
-                    <TableCell className="font-medium">{p.studentName}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn('text-[10px]', p.method === 'M-PESA' && 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400')}>{p.method}</Badge>
-                    </TableCell>
+                    <TableCell className="font-medium"><div className="flex items-center gap-2"><Avatar className="h-6 w-6"><AvatarFallback className={`text-[10px] font-bold text-white ${pickColor(p.studentName)}`}>{initials(p.studentName)}</AvatarFallback></Avatar>{p.studentName}</div></TableCell>
+                    <TableCell><Badge variant="outline" className={cn('text-[10px]', p.method === 'M-PESA' && 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400')}>{p.method}</Badge></TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{p.code}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{p.phone}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{fmtEAT(p.timestamp)}</TableCell>
                     <TableCell className="text-right font-semibold">{formatKES(p.amount)}</TableCell>
                   </TableRow>
                 ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+              </TableBody></Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* M-PESA STK push flow */}
       <Dialog open={payStep !== 'idle'} onOpenChange={(v) => !v && setPayStep('idle')}>
         <DialogContent className="sm:max-w-md">
           {activeInvoice && payStep === 'confirm' && (
             <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Smartphone className="h-5 w-5 text-emerald-600" /> Pay via M-PESA
-                </DialogTitle>
-                <DialogDescription>You will receive an STK push prompt on your phone</DialogDescription>
-              </DialogHeader>
+              <DialogHeader><DialogTitle className="flex items-center gap-2"><Smartphone className="h-5 w-5 text-emerald-600" /> Pay via M-PESA</DialogTitle><DialogDescription>You will receive an STK push prompt</DialogDescription></DialogHeader>
               <div className="space-y-3">
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Invoice</span>
-                    <span className="font-mono text-xs">{activeInvoice.invoiceNo}</span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Student</span>
-                    <span className="text-sm font-medium">{activeInvoice.studentName}</span>
-                  </div>
-                  <Separator className="my-2" />
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Balance due</span>
-                    <span className="text-lg font-bold">{formatKES(activeInvoice.amount - activeInvoice.paid)}</span>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium">M-PESA phone number</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="pl-9" />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">A prompt will appear on this phone. Enter your M-PESA PIN to confirm.</p>
-                </div>
-                <div className="flex items-center gap-2 rounded-lg bg-emerald-500/5 p-2 text-[11px] text-muted-foreground">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                  Encrypted via Daraja API · Paybill 247247 · No PIN stored
-                </div>
+                <div className="rounded-lg border p-3"><div className="flex justify-between text-sm"><span className="text-muted-foreground">Invoice</span><span className="font-mono text-xs">{activeInvoice.invoiceNo}</span></div><div className="mt-1 flex justify-between text-sm"><span className="text-muted-foreground">Student</span><span className="font-medium">{activeInvoice.studentName}</span></div><Separator className="my-2" /><div className="flex justify-between"><span className="text-sm">Balance due</span><span className="text-lg font-bold">{formatKES(activeInvoice.amount - activeInvoice.paid)}</span></div></div>
+                <div className="space-y-1.5"><label className="text-xs font-medium">M-PESA phone number</label><div className="relative"><Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={phone} onChange={(e) => setPhone(e.target.value)} className="pl-9" /></div></div>
+                <div className="flex items-center gap-2 rounded-lg bg-emerald-500/5 p-2 text-[11px] text-muted-foreground"><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Encrypted via Daraja API · No PIN stored</div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setPayStep('idle')}>Cancel</Button>
-                <Button className="flex-1" onClick={sendStk}>Send STK Push</Button>
-              </div>
+              <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setPayStep('idle')}>Cancel</Button><Button className="flex-1" onClick={sendStk}>Send STK Push</Button></div>
             </>
           )}
           {payStep === 'pending' && (
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <DialogHeader className="sr-only">
-                <DialogTitle>Waiting for M-PESA confirmation</DialogTitle>
-                <DialogDescription>STK push sent to your phone</DialogDescription>
-              </DialogHeader>
-              <div className="relative mb-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
-                  <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
-                </div>
-              </div>
+              <DialogHeader className="sr-only"><DialogTitle>Waiting</DialogTitle><DialogDescription>STK push sent</DialogDescription></DialogHeader>
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10"><Loader2 className="h-8 w-8 animate-spin text-emerald-600" /></div>
               <h3 className="text-base font-semibold">Waiting for M-PESA prompt…</h3>
               <p className="mt-1 text-sm text-muted-foreground">Check your phone: <span className="font-mono font-medium">{phone}</span></p>
-              <p className="mt-1 text-xs text-muted-foreground">Enter your M-PESA PIN to authorise the payment</p>
-              <div className="mt-4 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                Session expires in 2:00
-              </div>
             </div>
           )}
           {payStep === 'success' && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <DialogHeader className="sr-only">
-                <DialogTitle>Payment successful</DialogTitle>
-                <DialogDescription>M-PESA confirmation received</DialogDescription>
-              </DialogHeader>
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15">
-                <CheckCircle2 className="h-9 w-9 text-emerald-600" />
-              </div>
+              <DialogHeader className="sr-only"><DialogTitle>Payment successful</DialogTitle><DialogDescription>M-PESA confirmation received</DialogDescription></DialogHeader>
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15"><CheckCircle2 className="h-9 w-9 text-emerald-600" /></div>
               <h3 className="text-lg font-bold text-emerald-600">Payment Successful</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{formatKES(activeInvoice!.amount - activeInvoice!.paid)} received from {phone}</p>
-              <div className="mt-4 w-full rounded-lg border p-3 text-left">
-                <div className="flex justify-between text-xs"><span className="text-muted-foreground">Confirmation code</span><span className="font-mono font-bold text-emerald-600">{confirmation}</span></div>
-                <Separator className="my-2" />
-                <div className="flex justify-between text-xs"><span className="text-muted-foreground">Date</span><span>{fmtEAT(new Date().toISOString())}</span></div>
-                <div className="mt-1 flex justify-between text-xs"><span className="text-muted-foreground">Invoice</span><span className="font-mono">{activeInvoice!.invoiceNo}</span></div>
-                <div className="mt-1 flex justify-between text-xs"><span className="text-muted-foreground">Method</span><span>M-PESA Daraja</span></div>
-              </div>
+              <p className="mt-1 text-sm text-muted-foreground">{formatKES(activeInvoice!.amount - activeInvoice!.paid)} received</p>
+              <div className="mt-4 w-full rounded-lg border p-3 text-left"><div className="flex justify-between text-xs"><span className="text-muted-foreground">Confirmation code</span><span className="font-mono font-bold text-emerald-600">{confirmation}</span></div><Separator className="my-2" /><div className="flex justify-between text-xs"><span className="text-muted-foreground">Date</span><span>{fmtEAT(new Date().toISOString())}</span></div></div>
               <Button className="mt-4 w-full" onClick={closePay}>Done · Receipt sent via SMS</Button>
             </div>
           )}

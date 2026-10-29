@@ -1,32 +1,199 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Institution {
+  id            String   @id @default(cuid())
+  name          String
+  shortName     String?
+  slug          String   @unique
+  motto         String?
+  type          String
+  curriculum    String
+  location      String?
+  established   String?
+  timezone      String   @default("Africa/Nairobi")
+  currency      String   @default("KES")
+  languages     String   @default("English,Kiswahili")
+  logoText      String?
+  term          String
+  academicYear  String
+  setupComplete Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  classes       Class[]
+  staff         Staff[]
+  subjects      Subject[]
+  students      Student[]
+  feeStructures FeeStructure[]
+  invoices      Invoice[]
+  payments      Payment[]
+  sessions      ClassroomSession[]
+  announcements Announcement[]
+  assessments   Assessment[]
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Class {
+  id            String @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name          String
+  grade         String
+  stream        String?
+  teacherId     String?
+  room          String?
+  createdAt     DateTime @default(now())
+
+  @@index([institutionId])
+  @@unique([institutionId, name])
+}
+
+model Staff {
+  id            String @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name          String
+  role          String
+  email         String?
+  phone         String?
+  subjects      String?
+  avatarColor   String?
+  createdAt     DateTime @default(now())
+
+  @@index([institutionId])
+}
+
+model Subject {
+  id            String @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name          String
+  code          String
+  color         String
+  createdAt     DateTime @default(now())
+
+  @@index([institutionId])
+  @@unique([institutionId, name])
+}
+
+model Student {
+  id            String @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  admissionNo   String
+  name           String
+  gender         String
+  grade          String
+  stream         String?
+  guardian       String?
+  guardianPhone  String?
+  feeBalance    Int    @default(0)
+  attendance     Int    @default(100)
+  avgScore       Int    @default(0)
+  cbc            String?
+  status         String @default("active")
+  createdAt      DateTime @default(now())
+
+  @@index([institutionId])
+  @@unique([institutionId, admissionNo])
+}
+
+model FeeStructure {
+  id            String @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  grade         String
+  items         Json
+  createdAt     DateTime @default(now())
+
+  @@index([institutionId])
+}
+
+model Invoice {
+  id            String @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  invoiceNo     String
+  studentId     String?
+  studentName   String
+  className     String
+  amount        Int
+  paid          Int    @default(0)
+  dueDate       String?
+  status        String @default("pending")
+  items         Json
+  createdAt     DateTime @default(now())
+
+  @@index([institutionId])
+  @@unique([institutionId, invoiceNo])
+}
+
+model Payment {
+  id            String @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  invoiceNo     String?
+  studentName   String
+  method        String
+  amount        Int
+  code          String
+  phone         String?
+  timestamp     DateTime @default(now())
+
+  @@index([institutionId])
+}
+
+model ClassroomSession {
+  id            String @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  classId       String?
+  className     String
+  subject       String
+  teacher       String?
+  scheduledAt   String
+  duration      Int
+  status        String @default("scheduled")
+  createdAt     DateTime @default(now())
+
+  @@index([institutionId])
+}
+
+model Announcement {
+  id            String @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  title         String
+  body          String
+  audience      String
+  author        String
+  date          DateTime
+  views         Int    @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([institutionId])
+}
+
+model Assessment {
+  id            String @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  title         String
+  subject       String
+  className     String
+  questions     Int    @default(0)
+  window        String
+  duration      Int
+  status        String @default("Draft")
+  avgScore      Int    @default(0)
+  attempts      Int    @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([institutionId])
 }
