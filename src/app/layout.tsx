@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Kitone Edu Team" }],
   icons: {
-    icon: "public/logo.svg",
+    icon: "/logo.png",
   },
   openGraph: {
     title: "Kitone Edu · Multi-Institutional Learning Platform",
